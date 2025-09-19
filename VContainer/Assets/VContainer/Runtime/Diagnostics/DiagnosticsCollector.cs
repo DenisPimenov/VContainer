@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using VContainer.Internal;
 
@@ -69,6 +70,8 @@ namespace VContainer.Diagnostics
 
                 owner?.Dependencies.Add(current);
 
+                CheckCircularDependency(resolveCallStack.Value, current);
+
                 resolveCallStack.Value.Push(current);
                 var watch = Stopwatch.StartNew();
                 var instance = resolving(registration);
@@ -107,6 +110,16 @@ namespace VContainer.Diagnostics
             }
 
             current.ResolveInfo.ResolveTime = resolveTime;
+        }
+
+        private static void CheckCircularDependency(Stack<DiagnosticsInfo> resolveStack, DiagnosticsInfo current)
+        {
+            if (resolveStack.Contains(current))
+            {
+                var registrations = resolveStack.Select(c => c.ResolveInfo.Registration).Reverse();
+                var registrationStack = new Stack<Registration>(registrations);
+                throw new VContainerCircularDependenciesException(current.ResolveInfo.Registration, registrationStack);
+            }
         }
 
         public void NotifyContainerBuilt(IObjectResolver container)
